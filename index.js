@@ -1,26 +1,40 @@
 console.clear();
 
 const axios = require('axios').default;
-const Util = require('util');
+const fse = require('fs-extra');
 
 const BASE_URL = ' https://c.basemaps.cartocdn.com/light_nolabels';
 
 async function run() {
   try {
-    const bounds = getBoundedTilesUrl({ z: { start: 12, end: 15 }, y: { start: 1750, end: 1755 }, x: { start: 2673, end: 2679 } });
+    // const bounds = getBoundedTilesUrl({ z: { start: 12, end: 12 }, y: { start: 1750, end: 1755 }, x: { start: 2668, end: 2684 } });
+    // const bounds = getBoundedTilesUrl({ z: { start: 13, end: 13 }, y: { start: 3500, end: 3510 }, x: { start: 5347, end: 5357 } });
+    // const bounds = getBoundedTilesUrl({ z: { start: 14, end: 14 }, y: { start: 7001, end: 7021 }, x: { start: 10694, end: 10716 } });
+    const bounds = getBoundedTilesUrl({ z: { start: 15, end: 15 }, y: { start: 14001, end: 14033 }, x: { start: 21388, end: 21430 } });
 
     const ZOOM_LEVELS = Object.entries(bounds);
 
     for (let i = 0; i < ZOOM_LEVELS.length; i++) {
-      console.log(ZOOM_LEVELS[i]);
-      console.log(Util.inspect(ZOOM_LEVELS[i][1], false, 3, true));
+      const ZOOM = ZOOM_LEVELS[i][0];
+      const BOUNDS = ZOOM_LEVELS[i][1];
+      let BOUNDS_LENGTH = Object.keys(BOUNDS).filter((b) => b !== 'empty').length;
+
+      for (let j = 0; j < BOUNDS_LENGTH; j++) {
+        const Y_AXES = Object.keys(BOUNDS)[j];
+        let X_AXES_ARRAY = Object.values(BOUNDS)[j];
+
+        for (let k = 0; k < X_AXES_ARRAY.length; k++) {
+          const X_AXES = X_AXES_ARRAY[k];
+          const TILE_URL = `${BASE_URL}/${ZOOM}/${X_AXES}/${Y_AXES}.png`;
+
+          const { data } = await axios.get(TILE_URL, {
+            responseType: 'arraybuffer',
+          });
+
+          await fse.outputFile(`./tiles/${ZOOM}/${X_AXES}/${Y_AXES}.png`, data, { encoding: 'buffer' });
+        }
+      }
     }
-
-    // const { data } = await axios.get(' https://c.basemaps.cartocdn.com/light_nolabels/12/2677/1750.png', {
-    //   responseType: 'arraybuffer',
-    // });
-
-    // console.log(data);
   } catch (error) {
     console.log(error);
   }
@@ -40,27 +54,18 @@ function getBoundedTilesUrl(range = { z: { start: 0, end: 0 }, y: { start: 0, en
   // Z
   for (let i = range.z.start; i <= range.z.end; i++) {
     Z_SEGMENT = i;
-    result = { ...result, [Z_SEGMENT]: { null: [] } };
-    // console.log('-- Z LEVEL');
-    // console.log(Util.inspect(result, false, 3, true));
+    result = { ...result, [Z_SEGMENT]: { empty: [] } };
     // Y
     for (let j = range.y.start; j <= range.y.end; j++) {
       Y_SEGMENT = j;
-      //   result = { ...result, [Z_SEGMENT]: [...result[Z_SEGMENT], { [Y_SEGMENT]: [null] }] };
       result = { ...result, [Z_SEGMENT]: { ...result[Z_SEGMENT], [Y_SEGMENT]: [] } };
-      //   console.log('-- Y LEVEL');
-      //   console.log(Util.inspect(result, false, 3, true));
       // X
       for (let k = range.x.start; k <= range.x.end; k++) {
         X_SEGMENT = k;
         result = { ...result, [Z_SEGMENT]: { ...result[Z_SEGMENT], [Y_SEGMENT]: [...result[Z_SEGMENT][Y_SEGMENT], X_SEGMENT] } };
-        // console.log('-- X LEVEL');
-        // console.log(Util.inspect(result, false, 3, true));
       }
     }
   }
-
-  //   console.log(Util.inspect(result, false, 3, true));
   return result;
 }
 
